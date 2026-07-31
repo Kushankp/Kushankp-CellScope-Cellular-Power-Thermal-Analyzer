@@ -15,7 +15,9 @@ RegressionDetector::RegressionDetector(core::AnalyzerConfig config) : config_(co
 void RegressionDetector::inspect(const core::LogRecord& record) {
   const auto add = [&](std::string category, Severity severity, std::string message, double observed,
                        double threshold) {
-    findings_.push_back({std::move(category), severity, std::move(message), record.timestamp, observed, threshold});
+    if (findings_.size() < config_.max_findings) {
+      findings_.push_back({std::move(category), severity, std::move(message), record.timestamp, observed, threshold});
+    }
   };
   if (record.battery_current_ma >= config_.power_spike_ma) {
     add("power", Severity::Critical, "battery current exceeded spike threshold", record.battery_current_ma,

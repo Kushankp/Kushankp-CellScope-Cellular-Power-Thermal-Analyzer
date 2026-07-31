@@ -5,3 +5,4 @@ power_spike_ma: 900
 thermal_spike_c: 45
 high_cpu_mhz: 2200
 low_signal_dbm: -115
+max_findings: 10000

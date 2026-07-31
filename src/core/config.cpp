@@ -39,6 +39,7 @@ AnalyzerConfig load_config(const std::filesystem::path& path) {
     if (key == "thermal_spike_c") ss >> config.thermal_spike_c;
     if (key == "high_cpu_mhz") ss >> config.high_cpu_mhz;
     if (key == "low_signal_dbm") ss >> config.low_signal_dbm;
+    if (key == "max_findings") ss >> config.max_findings;
   }
   return config;
 }

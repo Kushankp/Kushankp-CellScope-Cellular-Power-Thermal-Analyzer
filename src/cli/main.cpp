@@ -8,6 +8,7 @@
 #include "cellscope/analysis/analyzer.hpp"
 #include "cellscope/benchmark/generator.hpp"
 #include "cellscope/core/config.hpp"
+#include "cellscope/parser/parser.hpp"
 #include "cellscope/report/report.hpp"
 
 int main(int argc, char** argv) {
@@ -30,6 +31,12 @@ int main(int argc, char** argv) {
   auto* report_cmd = app.add_subcommand("report", "Generate HTML, Markdown, JSON, and CSV reports for a log");
   report_cmd->add_option("log", report_input, "Input log path")->required();
   report_cmd->add_option("-o,--output", report_output, "Output directory");
+
+  std::filesystem::path validate_input;
+  auto* validate = app.add_subcommand("validate", "Validate a CSV or JSONL modem log without generating reports");
+  validate->add_option("log", validate_input, "Input log path")->required();
+
+  auto* version = app.add_subcommand("version", "Print the CellScope version");
 
   std::filesystem::path generate_output{"sample_logs/generated.csv"};
   std::uint64_t generate_rows = 10000;
@@ -65,6 +72,16 @@ int main(int argc, char** argv) {
       const auto report = analyzer.analyze(report_input);
       cellscope::report::write_report_files(report, report_output);
       spdlog::info("wrote reports for {} records to {}", report.parse_stats.records, report_output.string());
+    } else if (*validate) {
+      cellscope::parser::StreamingParser parser(config);
+      const auto parse_stats = parser.parse_file(validate_input, [](cellscope::parser::RecordBatch&&) {});
+      std::cout << "records=" << parse_stats.records << '\n'
+                << "rejected=" << parse_stats.rejected << '\n';
+      if (parse_stats.rejected != 0) {
+        return 2;
+      }
+    } else if (*version) {
+      std::cout << "CellScope 0.1.0\n";
     } else if (*generate) {
       cellscope::benchmark::generate_csv_log(generate_output, generate_rows);
       spdlog::info("generated {} rows at {}", generate_rows, generate_output.string());

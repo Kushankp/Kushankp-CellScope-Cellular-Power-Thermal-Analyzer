@@ -10,3 +10,5 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 python -m pytest
 ```
+
+Parser changes should include both CSV and JSONL tests. Analysis changes should include deterministic reducer tests and malformed-input coverage when they affect pipeline behavior.

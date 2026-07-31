@@ -14,6 +14,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cli11)
 
 FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3)
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
   spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
   GIT_TAG v1.14.1)
@@ -42,7 +48,7 @@ add_library(cellscope_core
   src/report/report.cpp
   src/benchmark/generator.cpp)
 target_include_directories(cellscope_core PUBLIC include)
-target_link_libraries(cellscope_core PUBLIC cellscope_spdlog)
+target_link_libraries(cellscope_core PUBLIC cellscope_spdlog nlohmann_json::nlohmann_json)
 target_compile_options(cellscope_core PRIVATE
   $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-Wall -Wextra -Wpedantic>)
 
@@ -61,7 +67,8 @@ if(CELLSCOPE_BUILD_TESTS)
   add_executable(cellscope_tests
     tests/parser_tests.cpp
     tests/analysis_tests.cpp
-    tests/report_tests.cpp)
+    tests/report_tests.cpp
+    tests/regression_tests.cpp)
   target_link_libraries(cellscope_tests PRIVATE cellscope_core GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(cellscope_tests)

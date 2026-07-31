@@ -1,5 +1,6 @@
 #include "cellscope/analysis/analyzer.hpp"
 
+#include <deque>
 #include <future>
 
 #include "cellscope/analysis/kpi.hpp"
@@ -15,7 +16,20 @@ Analyzer::Analyzer(core::AnalyzerConfig config) : config_(config) {}
 report::AnalysisReport Analyzer::analyze(const std::filesystem::path& path) const {
   parser::StreamingParser parser(config_);
   utils::ThreadPool pool(config_.worker_threads);
-  std::vector<std::future<std::tuple<KpiAccumulator, RegressionDetector, timeline::TimelineBuilder>>> futures;
+  using PartialResult = std::tuple<KpiAccumulator, RegressionDetector, timeline::TimelineBuilder>;
+  std::deque<std::future<PartialResult>> futures;
+  KpiAccumulator merged_kpi;
+  RegressionDetector merged_detector(config_);
+  timeline::TimelineBuilder merged_timeline;
+
+  const auto max_in_flight = std::max<std::size_t>(1, pool.size() * 2);
+  const auto drain_one = [&] {
+    auto [kpi, detector, timeline] = futures.front().get();
+    futures.pop_front();
+    merged_kpi.merge(kpi);
+    merged_detector.merge(detector);
+    merged_timeline.merge(timeline);
+  };
 
   auto stats = parser.parse_file(path, [&](parser::RecordBatch&& batch) {
     futures.push_back(pool.submit([batch = std::move(batch), config = config_] {
@@ -29,16 +43,13 @@ report::AnalysisReport Analyzer::analyze(const std::filesystem::path& path) cons
       }
       return std::make_tuple(std::move(kpi), std::move(detector), std::move(timeline));
     }));
+    if (futures.size() >= max_in_flight) {
+      drain_one();
+    }
   });
 
-  KpiAccumulator merged_kpi;
-  RegressionDetector merged_detector(config_);
-  timeline::TimelineBuilder merged_timeline;
-  for (auto& future : futures) {
-    auto [kpi, detector, timeline] = future.get();
-    merged_kpi.merge(kpi);
-    merged_detector.merge(detector);
-    merged_timeline.merge(timeline);
+  while (!futures.empty()) {
+    drain_one();
   }
 
   report::AnalysisReport out;

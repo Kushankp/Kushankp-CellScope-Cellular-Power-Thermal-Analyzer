@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <nlohmann/json.hpp>
+
 namespace cellscope::parser {
 namespace {
 
@@ -55,19 +57,6 @@ std::uint64_t parse_u64(const std::string& value) {
   return out;
 }
 
-std::unordered_map<std::string, std::string> json_object(const std::string& line) {
-  std::unordered_map<std::string, std::string> values;
-  std::string body = line;
-  if (!body.empty() && body.front() == '{') body.erase(body.begin());
-  if (!body.empty() && body.back() == '}') body.pop_back();
-  for (const auto& token : split_csv(body)) {
-    const auto pos = token.find(':');
-    if (pos == std::string::npos) continue;
-    values.emplace(trim(token.substr(0, pos)), trim(token.substr(pos + 1)));
-  }
-  return values;
-}
-
 core::LogRecord from_map(const std::unordered_map<std::string, std::string>& values) {
   auto get = [&](const std::string& key) -> const std::string& {
     const auto it = values.find(key);
@@ -90,6 +79,13 @@ core::LogRecord from_map(const std::unordered_map<std::string, std::string>& val
   record.signal_strength_dbm = static_cast<int>(parse_double(get("signal_strength_dbm")));
   record.power_domain = get("power_domain");
   if (record.radio_state == core::RadioState::Unknown) throw std::runtime_error("invalid radio_state");
+  if (record.network_type == core::NetworkType::Unknown) throw std::runtime_error("invalid network_type");
+  if (record.sleep_state == core::SleepState::Unknown) throw std::runtime_error("invalid sleep_state");
+  if (record.wake_reason == core::WakeReason::Unknown) throw std::runtime_error("invalid wake_reason");
+  if (record.voltage_v <= 0.0) throw std::runtime_error("voltage_v must be positive");
+  if (record.temperature_c < -40.0 || record.temperature_c > 125.0) {
+    throw std::runtime_error("temperature_c outside supported range");
+  }
   return record;
 }
 
@@ -99,6 +95,45 @@ core::LogRecord parse_csv_record(const std::vector<std::string>& header, const s
   std::unordered_map<std::string, std::string> values;
   for (std::size_t i = 0; i < header.size(); ++i) values.emplace(header[i], fields[i]);
   return from_map(values);
+}
+
+core::LogRecord parse_json_record(const std::string& line) {
+  const auto json = nlohmann::json::parse(line);
+  auto require_string = [&](const char* key) {
+    if (!json.contains(key)) throw std::runtime_error(std::string("missing field: ") + key);
+    if (!json.at(key).is_string()) throw std::runtime_error(std::string("field must be string: ") + key);
+    return json.at(key).get<std::string>();
+  };
+  auto require_number = [&](const char* key) {
+    if (!json.contains(key)) throw std::runtime_error(std::string("missing field: ") + key);
+    if (!json.at(key).is_number()) throw std::runtime_error(std::string("field must be numeric: ") + key);
+    return json.at(key).get<double>();
+  };
+
+  core::LogRecord record;
+  auto ts = core::parse_timestamp(require_string("timestamp"));
+  if (!ts) throw std::runtime_error("invalid timestamp");
+  record.timestamp = *ts;
+  record.cpu_frequency_mhz = static_cast<std::uint32_t>(require_number("cpu_mhz"));
+  record.temperature_c = require_number("temperature_c");
+  record.battery_current_ma = require_number("current_ma");
+  record.voltage_v = require_number("voltage_v");
+  record.radio_state = core::parse_radio_state(require_string("radio_state"));
+  record.network_type = core::parse_network_type(require_string("network_type"));
+  record.sleep_state = core::parse_sleep_state(require_string("sleep_state"));
+  record.wake_reason = core::parse_wake_reason(require_string("wake_reason"));
+  record.packet_count = static_cast<std::uint64_t>(require_number("packet_count"));
+  record.signal_strength_dbm = static_cast<int>(require_number("signal_strength_dbm"));
+  record.power_domain = require_string("power_domain");
+  if (record.radio_state == core::RadioState::Unknown) throw std::runtime_error("invalid radio_state");
+  if (record.network_type == core::NetworkType::Unknown) throw std::runtime_error("invalid network_type");
+  if (record.sleep_state == core::SleepState::Unknown) throw std::runtime_error("invalid sleep_state");
+  if (record.wake_reason == core::WakeReason::Unknown) throw std::runtime_error("invalid wake_reason");
+  if (record.voltage_v <= 0.0) throw std::runtime_error("voltage_v must be positive");
+  if (record.temperature_c < -40.0 || record.temperature_c > 125.0) {
+    throw std::runtime_error("temperature_c outside supported range");
+  }
+  return record;
 }
 
 }  // namespace
@@ -141,7 +176,7 @@ core::ParseStats StreamingParser::parse_file(const std::filesystem::path& path,
     ++line_no;
     if (line.empty()) continue;
     try {
-      auto record = format == InputFormat::Csv ? parse_csv_record(header, line) : from_map(json_object(line));
+      auto record = format == InputFormat::Csv ? parse_csv_record(header, line) : parse_json_record(line);
       batch.push_back(std::move(record));
       ++stats.records;
       if (batch.size() >= config_.batch_size) flush();
