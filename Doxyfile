@@ -1,0 +1,6 @@
+PROJECT_NAME = "CellScope"
+OUTPUT_DIRECTORY = docs/api
+INPUT = include src
+RECURSIVE = YES
+GENERATE_HTML = YES
+QUIET = YES

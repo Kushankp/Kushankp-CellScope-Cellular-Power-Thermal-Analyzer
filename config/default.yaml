@@ -1,0 +1,7 @@
+batch_size: 8192
+worker_threads: 0
+max_parse_errors: 128
+power_spike_ma: 900
+thermal_spike_c: 45
+high_cpu_mhz: 2200
+low_signal_dbm: -115

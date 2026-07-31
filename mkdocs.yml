@@ -1,0 +1,9 @@
+site_name: CellScope
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Architecture: docs/architecture.md
+  - User Guide: docs/user-guide.md
+  - Developer Guide: docs/developer-guide.md
+  - Benchmarks: docs/benchmark-report.md

@@ -1,0 +1,12 @@
+build/
+benchmark_output/
+dashboard_output/
+reports/
+*.o
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
