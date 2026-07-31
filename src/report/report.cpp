@@ -114,11 +114,35 @@ std::string to_html(const AnalysisReport& report) {
   return os.str();
 }
 
+std::string to_csv(const AnalysisReport& report) {
+  std::ostringstream os;
+  os << "metric,value\n";
+  os << "records," << report.kpis.records << '\n';
+  os << "parse_rejected," << report.parse_stats.rejected << '\n';
+  os << "average_current_ma," << report.kpis.average_current_ma << '\n';
+  os << "peak_current_ma," << report.kpis.peak_current_ma << '\n';
+  os << "estimated_battery_drain_mah," << report.kpis.estimated_battery_drain_mah << '\n';
+  os << "average_temperature_c," << report.kpis.average_temperature_c << '\n';
+  os << "peak_temperature_c," << report.kpis.peak_temperature_c << '\n';
+  os << "average_cpu_mhz," << report.kpis.average_cpu_mhz << '\n';
+  os << "wake_events," << report.kpis.wake_events << '\n';
+  os << "wake_frequency_per_hour," << report.kpis.wake_frequency_per_hour << '\n';
+  os << "radio_connected_percent," << report.kpis.radio_connected_percent << '\n';
+  os << "sleep_efficiency_percent," << report.kpis.sleep_efficiency_percent << '\n';
+  os << "\nfinding_category,severity,timestamp,message,observed,threshold\n";
+  for (const auto& f : report.findings) {
+    os << f.category << ',' << analysis::to_string(f.severity) << ',' << core::format_timestamp(f.timestamp)
+       << ",\"" << esc(f.message) << "\"," << f.observed << ',' << f.threshold << '\n';
+  }
+  return os.str();
+}
+
 void write_report_files(const AnalysisReport& report, const std::filesystem::path& output_dir) {
   std::filesystem::create_directories(output_dir);
   std::ofstream(output_dir / "analysis.json") << to_json(report);
   std::ofstream(output_dir / "analysis.md") << to_markdown(report);
   std::ofstream(output_dir / "analysis.html") << to_html(report);
+  std::ofstream(output_dir / "analysis.csv") << to_csv(report);
 }
 
 }  // namespace cellscope::report

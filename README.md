@@ -25,6 +25,7 @@ ctest --test-dir build --output-on-failure
 ```bash
 ./build/cellscope analyze sample_logs/sample.csv -o reports
 ./build/cellscope stats sample_logs/sample.csv
+./build/cellscope report sample_logs/sample.csv -o reports
 ./build/cellscope generate-sample --rows 1000000 -o sample_logs/million.csv
 ./build/cellscope benchmark -o benchmark_output
 ```

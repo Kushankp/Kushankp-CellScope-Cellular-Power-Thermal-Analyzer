@@ -25,6 +25,12 @@ int main(int argc, char** argv) {
   auto* stats = app.add_subcommand("stats", "Print KPI summary for a log");
   stats->add_option("log", stats_input, "Input log path")->required();
 
+  std::filesystem::path report_input;
+  std::filesystem::path report_output{"reports"};
+  auto* report_cmd = app.add_subcommand("report", "Generate HTML, Markdown, JSON, and CSV reports for a log");
+  report_cmd->add_option("log", report_input, "Input log path")->required();
+  report_cmd->add_option("-o,--output", report_output, "Output directory");
+
   std::filesystem::path generate_output{"sample_logs/generated.csv"};
   std::uint64_t generate_rows = 10000;
   auto* generate = app.add_subcommand("generate-sample", "Generate a realistic synthetic CSV log");
@@ -54,6 +60,11 @@ int main(int argc, char** argv) {
                 << "peak_current_ma=" << report.kpis.peak_current_ma << '\n'
                 << "average_temperature_c=" << report.kpis.average_temperature_c << '\n'
                 << "sleep_efficiency_percent=" << report.kpis.sleep_efficiency_percent << '\n';
+    } else if (*report_cmd) {
+      cellscope::analysis::Analyzer analyzer(config);
+      const auto report = analyzer.analyze(report_input);
+      cellscope::report::write_report_files(report, report_output);
+      spdlog::info("wrote reports for {} records to {}", report.parse_stats.records, report_output.string());
     } else if (*generate) {
       cellscope::benchmark::generate_csv_log(generate_output, generate_rows);
       spdlog::info("generated {} rows at {}", generate_rows, generate_output.string());
